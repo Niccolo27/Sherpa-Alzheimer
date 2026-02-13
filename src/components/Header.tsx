@@ -1,56 +1,84 @@
 import React from 'react';
-import Link from 'next/link'; 
-import { Container } from './Container';
+import Link from 'next/link';
+import { LanguageTranslator } from './LanguageTranslator';
 
-interface HeaderProps {
-  currentLang: string;
-  setLang: (lang: 'it' | 'en') => void;
-}
-
-export const Header = ({ currentLang, setLang }: HeaderProps) => {
+export const Header = () => {
   return (
-    <header className="w-full bg-white border-b-2 border-gray-100 py-4">
+    <header className="bg-white border-b-4 border-brand-secondary sticky top-0 z-50">
       <Container>
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          
-          {/* Logo in the Home section  */}
-          <Link href="/" className="text-2xl font-black text-blue-700 hover:opacity-80 transition">
-            Sherpa<span className="text-gray-900">Alzheimer</span>
+        <div className="flex justify-between items-center py-4">
+          {/* Logo */}
+          <Link href="/" className="group">
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">🤖</span>
+              <span className="text-2xl font-black text-brand-primary tracking-tighter group-hover:text-brand-text transition-colors">
+                Sherpa<span className="text-brand-accent">Alzheimer</span>
+              </span>
+            </div>
           </Link>
 
-          {/* NavBar */}
-          <nav className="flex items-center gap-6">
-            <ul className="flex gap-6 font-bold text-gray-600">
-              <li>
-                <Link href="/" className="hover:text-blue-600 transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link href="/contatti" className="hover:text-blue-600 transition-colors">
-                  {currentLang === 'it' ? 'Contatti' : 'Contact'}
-                </Link>
-              </li>
-            </ul>
-            
-            {/* Language section */}
-            <div className="flex border-2 border-blue-100 rounded-xl overflow-hidden">
-              <button 
-                onClick={() => setLang('it')}
-                className={`px-3 py-1 text-sm font-bold ${currentLang === 'it' ? 'bg-blue-700 text-white' : 'bg-white text-blue-700'}`}
-              >
-                IT
-              </button>
-              <button 
-                onClick={() => setLang('en')}
-                className={`px-3 py-1 text-sm font-bold ${currentLang === 'en' ? 'bg-blue-700 text-white' : 'bg-white text-blue-700'}`}
-              >
-                EN
-              </button>
+ 
+          <div className="flex items-center gap-8">
+            {/* Widget automatic translate */}
+            <div className="hidden sm:block">
+              <LanguageTranslator />
             </div>
-          </nav>
+
+            {/* Main Menu */}
+            <nav>
+              <ul className="flex items-center gap-6 font-bold text-lg text-brand-text">
+                <li>
+                  <Link href="/" className="hover:text-brand-primary transition-colors border-b-2 border-transparent hover:border-brand-primary">
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/chatbot" className="hover:text-brand-primary transition-colors border-b-2 border-transparent hover:border-brand-primary">
+                    Chatbot
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/contatti" className="bg-brand-primary text-white px-5 py-2 rounded-xl hover:scale-105 transition-all">
+                    Contatti
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
         </div>
       </Container>
+
+      <style jsx global>{`
+        .goog-te-gadget {
+          font-family: inherit !important;
+          font-size: 0 !important; /* Nasconde il testo "Powered by" */
+          display: flex;
+          align-items: center;
+        }
+        .goog-te-gadget .goog-te-combo {
+          margin: 0 !important;
+          padding: 8px !important;
+          border: 2px solid #1D4ED8 !important; /* brand-primary */
+          border-radius: 12px !important;
+          background: #DBEAFE !important; /* brand-secondary */
+          color: #111827 !important;
+          font-weight: bold !important;
+          font-size: 14px !important;
+          outline: none;
+        }
+        .goog-te-banner-frame.skiptranslate, .goog-te-gadget img {
+          display: none !important; /* Nasconde loghi e banner */
+        }
+        body {
+          top: 0 !important; /* Evita che Google sposti il sito verso il basso */
+        }
+      `}</style>
     </header>
   );
 };
+
+const Container = ({ children }: { children: React.ReactNode }) => (
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {children}
+  </div>
+);
