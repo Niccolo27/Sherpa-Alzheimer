@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  reactStrictMode: true,
+  // Abbiamo rimosso i18n da qui perché causava il conflitto
 };
 
 export default nextConfig;
