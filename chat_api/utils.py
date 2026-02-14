@@ -1,14 +1,14 @@
+from gradio_client import Client
 from deep_translator import GoogleTranslator
 from langdetect import detect, DetectorFactory
 from .models import Message
 
-# Ensures consistent language detection
 DetectorFactory.seed = 0
 
 def process_sherpa_logic(user_text, user_name="User"):
     """
-    Central logic: Detects language, pivots to English for processing,
-    and translates back for the user.
+    Central logic: Detects language, pivots to English, 
+    calls GRADIO, and translates back.
     """
     # 1. Detect Language
     try:
@@ -16,26 +16,41 @@ def process_sherpa_logic(user_text, user_name="User"):
     except:
         user_lang = 'en'
 
-    # 2. English-Pivot (Input translation)
+    # 2. English-Pivot
     if user_lang != 'en':
         english_input = GoogleTranslator(source='auto', target='en').translate(user_text)
     else:
         english_input = user_text
 
-    # --- CORE AI/BOT LOGIC ---
-    # This is where you will eventually link the external bot.
-    # For now, we simulate a response in English.
-    english_response = f"Sherpa Alzheimer Intelligence: I have processed your request regarding '{english_input}' for {user_name}."
-    # -------------------------
+    # 3. CALL GRADIO CLIENT (The actual fix)
+    try:
+        # We initialize the client inside the function or globally
+        client = Client("Etah-94/digital-sherpa")
+        
+        # NOTE: Check your Gradio "Use via API" tab to see if the 
+        # input is 'message', 'text', or just a positional argument.
+        result = client.predict(
+            message=english_input, 
+            api_name="/chat" 
+        )
+        
+        # Gradio often returns a list or a dictionary depending on the model
+        if isinstance(result, (list, tuple)):
+            english_response = result[0]
+        else:
+            english_response = str(result)
 
-    # 3. Output Translation (Back to user's language)
+    except Exception as e:
+        print(f"Gradio Error: {e}")
+        english_response = "I am currently re-calibrating my connection to the Gradio Space. Please try again."
+
+    # 4. Output Translation
     if user_lang != 'en':
         final_response = GoogleTranslator(source='en', target=user_lang).translate(english_response)
     else:
         final_response = english_response
 
-    # 4. Save to Database
-    # We save the original user text and the translated bot response
+    # 5. Database Logging
     Message.objects.create(user_name=user_name, text=user_text, sender='user')
     Message.objects.create(user_name=user_name, text=final_response, sender='bot')
 
