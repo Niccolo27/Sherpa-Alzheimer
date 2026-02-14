@@ -3,8 +3,8 @@ import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { Container } from '../components/Container';
 import { Heading } from '../components/Heading';
-import { useLanguage } from '../hooks/useLanguage';
-import { translations } from '../utils/translations';
+
+export type SupportedLang = 'en' | 'es' | 'it';
 
 interface Message {
   id: number;
@@ -13,140 +13,127 @@ interface Message {
 }
 
 export default function ChatbotPage() {
-  
-  const { lang, changeLanguage } = useLanguage();
-  const t = translations[lang].chatbot;
+  const [currentLang, setCurrentLang] = useState<SupportedLang>('it');
   const [userName, setUserName] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  
+  const chatLabels = {
+    it: { title: "Sherpa Alzheimer", placeholder: "Scrivi un messaggio...", reset: "Reset Sessione", welcome: "Benvenuto! Come ti chiami?" },
+    en: { title: "Sherpa Alzheimer", placeholder: "Type a message...", reset: "Reset Session", welcome: "Welcome! What is your name?" },
+    es: { title: "Sherpa Alzheimer", placeholder: "Escribe un mensaje...", reset: "Reiniciar sesión", welcome: "¡Bienvenido! ¿Cómo te llamas?" }
+  };
+
+  // Run ONCE on mount to check session
   useEffect(() => {
     const savedName = localStorage.getItem('chat_user_name');
     if (savedName) {
       setUserName(savedName);
-      setMessages([{ 
-        id: 1, 
-        text: `${t.returning}${savedName}!`, 
-        sender: 'bot' 
-      }]);
+      setMessages([{ id: 1, text: `Bentornato, ${savedName}!`, sender: 'bot' }]);
     } else {
-      setMessages([{ 
-        id: 1, 
-        text: t.welcome, 
-        sender: 'bot' 
-      }]);
+      setMessages([{ id: 1, text: chatLabels[currentLang].welcome, sender: 'bot' }]);
     }
-  }, [lang]); 
+  }, []); // Empty array ensures this doesn't loop
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isTyping]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
     const userText = inputValue.trim();
-    const newUserMsg: Message = { id: Date.now(), text: userText, sender: 'user' };
-    setMessages(prev => [...prev, newUserMsg]);
+    setMessages(prev => [...prev, { id: Date.now(), text: userText, sender: 'user' }]);
     setInputValue('');
 
-   
+    // PHASE 1: Capture Name
     if (!userName) {
       setUserName(userText);
       localStorage.setItem('chat_user_name', userText);
-      
+      setIsTyping(true);
       setTimeout(() => {
-        const botReply: Message = {
-          id: Date.now() + 1,
-          text: `${t.pleasure}${userText}!`,
-          sender: 'bot'
-        };
-        setMessages(prev => [...prev, botReply]);
+        const reply = currentLang === 'es' ? `¡Mucho gusto, ${userText}!` : currentLang === 'it' ? `Piacere di conoscerti, ${userText}!` : `Nice to meet you, ${userText}!`;
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: reply, sender: 'bot' }]);
+        setIsTyping(false);
       }, 800);
-      return;
+      return; // Stop here to avoid calling API without a name
     }
 
-    
-    setTimeout(() => {
-      const botReply: Message = {
-        id: Date.now() + 1,
-        text: lang === 'it' 
-          ? `Capito ${userName}, sto elaborando la richiesta...` 
-          : `Got it ${userName}, I'm processing your request...`,
-        sender: 'bot'
-      };
-      setMessages(prev => [...prev, botReply]);
-    }, 1000);
-  };
+    // PHASE 2: API Chat
+    setIsTyping(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/chat/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, user_name: userName }),
+      });
 
-  const handleReset = () => {
-    localStorage.removeItem('chat_user_name');
-    window.location.reload();
+      const data = await response.json();
+      
+      if (data.detected_language && ['en', 'es', 'it'].includes(data.detected_language)) {
+        setCurrentLang(data.detected_language as SupportedLang);
+      }
+      
+      setMessages(prev => [...prev, { id: Date.now() + 2, text: data.reply, sender: 'bot' }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { id: Date.now() + 3, text: "Connection error.", sender: 'bot' }]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header currentLang={lang} setLang={changeLanguage} />
-
+      <Header lang={currentLang} />
       <main className="flex-grow py-10">
         <Container>
           <div className="max-w-4xl mx-auto">
-            <div className="flex justify-between items-end mb-8">
-              <div>
-                <Heading title={lang === 'it' ? "Assistente" : "Assistant"} level={1} />
-              </div>
+            <div className="flex justify-between items-end mb-6">
+              <Heading title={chatLabels[currentLang].title} level={1} />
               {userName && (
-                <button 
-                  onClick={handleReset}
-                  className="text-sm text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg font-bold transition-colors border-2 border-red-100"
-                >
-                  {t.reset}
+                <button onClick={() => { localStorage.removeItem('chat_user_name'); window.location.reload(); }} 
+                        className="text-red-500 font-bold hover:underline">
+                  {chatLabels[currentLang].reset}
                 </button>
               )}
             </div>
-
-            <div className="bg-white border-4 border-brand-secondary rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[600px]">
-              {/* Area Messaggi */}
-              <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-white/50">
+            <div className="bg-white border-4 border-brand-secondary rounded-3xl shadow-xl flex flex-col h-[550px] overflow-hidden">
+              <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-gray-50">
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] p-4 rounded-2xl text-lg font-medium shadow-sm
-                      ${msg.sender === 'user' 
-                        ? 'bg-brand-primary text-white rounded-br-none' 
-                        : 'bg-brand-secondary text-brand-text rounded-bl-none border-2 border-blue-100'}`}>
+                    <div className={`max-w-[80%] p-4 rounded-2xl font-medium shadow-sm ${msg.sender === 'user' ? 'bg-brand-primary text-white rounded-tr-none' : 'bg-white border-2 border-brand-secondary rounded-tl-none'}`}>
                       {msg.text}
                     </div>
                   </div>
                 ))}
+                {isTyping && <div className="text-gray-400 italic animate-pulse">Sherpa is thinking...</div>}
                 <div ref={messagesEndRef} />
               </div>
-
-              {/* Form Input */}
-              <form onSubmit={handleSendMessage} className="p-4 bg-white border-t-4 border-gray-100 flex gap-4">
+              <form onSubmit={handleSendMessage} className="p-4 bg-white border-t flex gap-3">
                 <input 
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder={!userName ? t.placeholderName : t.placeholderMsg}
-                  className="flex-grow p-4 text-lg border-4 border-gray-200 rounded-2xl focus:border-brand-primary focus:ring-4 focus:ring-brand-accent/20 outline-none transition-all"
-                  aria-label="Chat input"
+                  type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={chatLabels[currentLang].placeholder}
+                  className="flex-grow p-3 border-2 rounded-xl focus:border-brand-primary outline-none"
                 />
-                <button 
-                  type="submit" 
-                  className="bg-brand-primary text-white px-8 py-4 rounded-2xl font-black text-xl hover:scale-105 active:scale-95 transition-all shadow-md"
-                >
-                  {translations[lang].common.send}
-                </button>
+                <button type="submit" className="bg-brand-primary text-white px-8 py-3 rounded-xl font-bold">SEND</button>
               </form>
             </div>
           </div>
         </Container>
       </main>
-
-      <Footer />
+      <Footer lang={currentLang} />
     </div>
   );
 }
+
+/**
+ * FUTURE IMPLEMENTATION NOTE (Scalability Upgrade):
+ * ------------------------------------------------
+ * To synchronize language across all pages (Home, About, etc.) without manual prop drilling:
+ * 1. Create a `LanguageContext` using React Context API in /context/LanguageContext.tsx.
+ * 2. Wrap `_app.tsx` with the `LanguageProvider`.
+ * 3. Use `const { lang, setLang } = useLanguage()` here instead of local useState.
+ */

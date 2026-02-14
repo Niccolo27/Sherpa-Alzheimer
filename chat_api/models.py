@@ -1,0 +1,7 @@
+from django.db import models
+
+class Message(models.Model):
+    user_name = models.CharField(max_length=100)
+    text = models.TextField()
+    sender = models.CharField(max_length=10, choices=[('user', 'User'), ('bot', 'Bot')])
+    created_at = models.DateTimeField(auto_now_add=True)
