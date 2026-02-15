@@ -7,7 +7,6 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
 
-# Import the logic functions from utils
 from .utils import process_sherpa_logic, process_voice_logic
 from .models import ContactRequest
 
