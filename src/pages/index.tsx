@@ -85,7 +85,7 @@ export default function Home() {
             <div className="relative">
               <div className="relative z-10 w-full aspect-square rounded-[40px] overflow-hidden shadow-2xl border-8 border-white">
                 <Image 
-                  src="/hero-image.png" // Ensure your image is in /public and named correctly
+                  src="/hero-image.jpeg" // Ensure your image is in /public and named correctly
                   alt={t.imgAlt}
                   fill
                   className="object-cover"
