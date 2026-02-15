@@ -26,17 +26,13 @@ function parseSherpaReply(reply: string): ReplyBlock[] {
   const blocks: ReplyBlock[] = [];
 
   for (const line of lines) {
-    // Headings like "Definition:" "Key facts:" etc
     if (/^[A-Za-zÀ-ÿ0-9\s'’()-]+:$/.test(line)) {
       blocks.push({ type: 'heading', text: line.replace(/:$/, '') });
       continue;
     }
 
-    // Bullets like "- something"
     if (line.startsWith('- ')) {
       const item = line.slice(2).trim();
-
-      // If it's a URL, treat it as a link
       if (/^https?:\/\/\S+$/i.test(item)) {
         blocks.push({ type: 'link', href: item });
       } else {
@@ -45,7 +41,6 @@ function parseSherpaReply(reply: string): ReplyBlock[] {
       continue;
     }
 
-    // Plain text
     blocks.push({ type: 'text', text: line });
   }
 
@@ -54,7 +49,11 @@ function parseSherpaReply(reply: string): ReplyBlock[] {
 
 export default function ChatbotPage() {
   const [currentLang, setCurrentLang] = useState<SupportedLang>('it');
-  const [user, setUser] = useState<{name: string} | null>({ name: "User" }); 
+
+  // FIX: You introduced `user` but the rest of the code uses `userName`.
+  // Keep a single source of truth: `userName`.
+  const [userName, setUserName] = useState<string>('');
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -111,7 +110,8 @@ export default function ChatbotPage() {
     },
   } as const;
 
-  // Quick prompts (buttons)
+  const t = chatLabels[currentLang];
+
   const quickPrompts: Array<{ label: string; message: string }> = [
     {
       label: '🌙 Nighttime (sundowning)',
@@ -135,7 +135,7 @@ export default function ChatbotPage() {
     },
   ];
 
-  // --- VOICE LOGIC: CALM TEXT TO SPEECH ---
+  // --- CALM TEXT TO SPEECH ---
   const speak = (text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
@@ -143,22 +143,22 @@ export default function ChatbotPage() {
     const utterance = new SpeechSynthesisUtterance(text);
 
     utterance.lang = currentLang === 'it' ? 'it-IT' : currentLang === 'es' ? 'es-ES' : 'en-US';
-
-    // Calmness Settings
     utterance.rate = 0.85;
     utterance.pitch = 0.95;
     utterance.volume = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(
-      v => (v.name.includes('Google') || v.name.includes('Natural')) && v.lang.startsWith(utterance.lang.split('-')[0])
+      v =>
+        (v.name.includes('Google') || v.name.includes('Natural')) &&
+        v.lang.startsWith(utterance.lang.split('-')[0])
     );
     if (preferredVoice) utterance.voice = preferredVoice;
 
     window.speechSynthesis.speak(utterance);
   };
 
-  // --- VOICE LOGIC: SPEECH TO TEXT ---
+  // --- SPEECH TO TEXT ---
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -177,9 +177,8 @@ export default function ChatbotPage() {
     };
 
     rec.onend = () => setIsListening(false);
-
     recognitionRef.current = rec;
-    // load voices once
+
     window.speechSynthesis.getVoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -208,14 +207,14 @@ export default function ChatbotPage() {
     const savedName = localStorage.getItem('chat_user_name');
     if (savedName) {
       setUserName(savedName);
-      setMessages([{ id: 1, text: chatLabels[currentLang].welcomeBack(savedName), sender: 'bot' }]);
+      setMessages([{ id: 1, text: t.welcomeBack(savedName), sender: 'bot' }]);
     } else {
-      setMessages([{ id: 1, text: chatLabels[currentLang].welcome, sender: 'bot' }]);
+      setMessages([{ id: 1, text: t.welcome, sender: 'bot' }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-scroll
+  // Auto-scroll (keep ONLY one, you had duplicates)
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
@@ -239,7 +238,6 @@ export default function ChatbotPage() {
 
       const data = await response.json();
 
-      // Update UI language if backend detected a change
       if (data.lang && ['en', 'es', 'it'].includes(data.lang)) {
         setCurrentLang(data.lang as SupportedLang);
       }
@@ -247,9 +245,8 @@ export default function ChatbotPage() {
       setMessages(prev => [...prev, { id: Date.now() + 2, text: data.reply, sender: 'bot' }]);
       speak(data.reply);
     } catch {
-      const errText = chatLabels[currentLang].connectionError;
-      setMessages(prev => [...prev, { id: Date.now() + 3, text: errText, sender: 'bot' }]);
-      speak(errText);
+      setMessages(prev => [...prev, { id: Date.now() + 3, text: t.connectionError, sender: 'bot' }]);
+      speak(t.connectionError);
     } finally {
       setIsTyping(false);
     }
@@ -257,10 +254,7 @@ export default function ChatbotPage() {
 
   const handleQuickPrompt = async (promptMessage: string) => {
     if (!userName) {
-      setMessages(prev => [
-        ...prev,
-        { id: Date.now(), text: chatLabels[currentLang].quickNameFirst, sender: 'bot' },
-      ]);
+      setMessages(prev => [...prev, { id: Date.now(), text: t.quickNameFirst, sender: 'bot' }]);
       return;
     }
 
@@ -268,7 +262,7 @@ export default function ChatbotPage() {
     await sendMessageToBackend(promptMessage);
   };
 
-  // --- MESSAGE HANDLING (supports typed + voice) ---
+  // MESSAGE HANDLING (typed + voice)
   const handleSendMessage = async (e: React.FormEvent | null, voiceText?: string) => {
     if (e) e.preventDefault();
 
@@ -285,7 +279,7 @@ export default function ChatbotPage() {
 
       setIsTyping(true);
       setTimeout(() => {
-        const reply = chatLabels[currentLang].niceToMeetYou(textToSend);
+        const reply = t.niceToMeetYou(textToSend);
         setMessages(prev => [...prev, { id: Date.now() + 1, text: reply, sender: 'bot' }]);
         setIsTyping(false);
         speak(reply);
@@ -296,10 +290,6 @@ export default function ChatbotPage() {
 
     await sendMessageToBackend(textToSend);
   };
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -316,10 +306,8 @@ export default function ChatbotPage() {
                     🤖
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-gray-900 leading-none">
-                      {chatLabels[currentLang].title}
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">{chatLabels[currentLang].subtitle}</p>
+                    <h2 className="text-xl font-black text-gray-900 leading-none">{t.title}</h2>
+                    <p className="text-sm text-gray-500 mt-1">{t.subtitle}</p>
                   </div>
                 </div>
 
@@ -327,17 +315,16 @@ export default function ChatbotPage() {
                   <button
                     onClick={handleReset}
                     className="text-xs font-bold uppercase tracking-wider text-red-500 hover:text-red-700 transition"
+                    type="button"
                   >
-                    {chatLabels[currentLang].reset}
+                    {t.reset}
                   </button>
                 )}
               </div>
 
               {/* Quick Support Buttons */}
               <div className="px-6 py-4 border-b bg-white">
-                <p className="text-sm font-medium text-gray-600 mb-3">
-                  {chatLabels[currentLang].quickTitle}
-                </p>
+                <p className="text-sm font-medium text-gray-600 mb-3">{t.quickTitle}</p>
                 <div className="flex flex-wrap gap-2">
                   {quickPrompts.map((prompt, idx) => (
                     <button
@@ -357,9 +344,7 @@ export default function ChatbotPage() {
                 {messages.map(msg => (
                   <div
                     key={msg.id}
-                    className={`flex items-start gap-3 ${
-                      msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
-                    }`}
+                    className={`flex items-start gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                   >
                     <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
                       <div
@@ -379,7 +364,6 @@ export default function ChatbotPage() {
                                   </div>
                                 );
                               }
-
                               if (b.type === 'bullet') {
                                 return (
                                   <div key={idx2} className="flex gap-2 text-gray-800">
@@ -388,7 +372,6 @@ export default function ChatbotPage() {
                                   </div>
                                 );
                               }
-
                               if (b.type === 'link') {
                                 return (
                                   <a
@@ -402,7 +385,6 @@ export default function ChatbotPage() {
                                   </a>
                                 );
                               }
-
                               return (
                                 <div key={idx2} className="text-gray-800">
                                   {b.text}
@@ -421,7 +403,7 @@ export default function ChatbotPage() {
                           className="mt-2 text-blue-400 hover:text-blue-600 flex items-center gap-1 text-sm font-bold"
                           type="button"
                         >
-                          🔊 {chatLabels[currentLang].repeat}
+                          🔊 {t.repeat}
                         </button>
                       )}
                     </div>
@@ -430,14 +412,13 @@ export default function ChatbotPage() {
 
                 {isTyping && (
                   <div className="flex items-center gap-2 text-blue-400 font-bold animate-pulse">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                    {chatLabels[currentLang].typing}
+                    <span className="w-2 h-2 bg-blue-400 rounded-full" />
+                    {t.typing}
                   </div>
                 )}
 
                 <div ref={messagesEndRef} />
               </div>
-            </div>
 
               {/* Controls */}
               <form onSubmit={e => handleSendMessage(e)} className="p-6 bg-white border-t border-indigo-50">
@@ -446,7 +427,7 @@ export default function ChatbotPage() {
                     type="text"
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
-                    placeholder={chatLabels[currentLang].placeholder}
+                    placeholder={t.placeholder}
                     className="flex-1 rounded-2xl border-2 border-slate-100 bg-slate-50 px-6 py-4 text-lg outline-none focus:border-blue-400 transition-all"
                   />
 
@@ -468,48 +449,11 @@ export default function ChatbotPage() {
                     disabled={!inputValue.trim()}
                     className="h-16 px-8 rounded-2xl font-black text-white bg-blue-600 shadow-blue-200 shadow-lg hover:bg-blue-700 disabled:opacity-30 transition-all active:scale-95"
                   >
-                    {chatLabels[currentLang].send.toUpperCase()}
+                    {t.send.toUpperCase()}
                   </button>
                 </div>
-              ))}
-              {isTyping && (
-                <div className="flex items-center gap-2 text-blue-500 font-bold animate-pulse">
-                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                   {t.typing}
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+              </form>
             </div>
-
-            {/* Input Form */}
-            <form onSubmit={handleSendMessage} className="p-6 bg-white border-t border-slate-100 flex gap-4 items-center">
-              <input 
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={t.placeholder}
-                className="flex-1 bg-slate-100 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-400 text-slate-700"
-              />
-              
-              <button 
-                type="button"
-                onClick={toggleVoiceInput}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 ${
-                  isListening 
-                  ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-200' 
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                {isListening ? '🛑' : '🎙️'}
-              </button>
-
-              <button 
-                type="submit"
-                disabled={!inputValue.trim()}
-                className="bg-blue-600 text-white h-14 px-8 rounded-2xl font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100 disabled:opacity-50"
-              >
-                {currentLang === 'it' ? 'INVIA' : 'SEND'}
-              </button>
-            </form>
           </div>
         </Container>
       </main>
