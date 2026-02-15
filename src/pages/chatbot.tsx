@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { Container } from '../components/Container';
-import { Heading } from '../components/Heading';
 
 export type SupportedLang = 'en' | 'es' | 'it';
 
@@ -21,26 +20,17 @@ export default function ChatbotPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const chatLabels = {
-    it: { title: "Sherpa Alzheimer", placeholder: "Scrivi un messaggio...", reset: "Reset Sessione", welcome: "Benvenuto! Come ti chiami?" },
-    en: { title: "Sherpa Alzheimer", placeholder: "Type a message...", reset: "Reset Session", welcome: "Welcome! What is your name?" },
-    es: { title: "Sherpa Alzheimer", placeholder: "Escribe un mensaje...", reset: "Reiniciar sesión", welcome: "¡Bienvenido! ¿Cómo te llamas?" }
+    it: { title: 'Sherpa Alzheimer', subtitle: 'Risposte semplici, tono calmo.', placeholder: 'Scrivi un messaggio...', reset: 'Reset sessione', welcome: 'Benvenuto! Come ti chiami?', typing: 'Sto pensando...', send: 'Invia' },
+    en: { title: 'Sherpa Alzheimer', subtitle: 'Simple answers, calm tone.', placeholder: 'Type a message...', reset: 'Reset session', welcome: 'Welcome! What is your name?', typing: 'Thinking...', send: 'Send' },
+    es: { title: 'Sherpa Alzheimer', subtitle: 'Respuestas simples, tono calmado.', placeholder: 'Escribe un mensaje...', reset: 'Reiniciar sesión', welcome: '¡Bienvenido! ¿Cómo te llamas?', typing: 'Pensando...', send: 'Enviar' },
   };
 
-  // Run ONCE on mount to check session
+  // 1. Logic to auto-scroll
   useEffect(() => {
-    const savedName = localStorage.getItem('chat_user_name');
-    if (savedName) {
-      setUserName(savedName);
-      setMessages([{ id: 1, text: `Bentornato, ${savedName}!`, sender: 'bot' }]);
-    } else {
-      setMessages([{ id: 1, text: chatLabels[currentLang].welcome, sender: 'bot' }]);
-    }
-  }, []); // Empty array ensures this doesn't loop
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  // 2. Logic to handle the API call to Django
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
@@ -49,20 +39,13 @@ export default function ChatbotPage() {
     setMessages(prev => [...prev, { id: Date.now(), text: userText, sender: 'user' }]);
     setInputValue('');
 
-    // PHASE 1: Capture Name
     if (!userName) {
       setUserName(userText);
       localStorage.setItem('chat_user_name', userText);
-      setIsTyping(true);
-      setTimeout(() => {
-        const reply = currentLang === 'es' ? `¡Mucho gusto, ${userText}!` : currentLang === 'it' ? `Piacere di conoscerti, ${userText}!` : `Nice to meet you, ${userText}!`;
-        setMessages(prev => [...prev, { id: Date.now() + 1, text: reply, sender: 'bot' }]);
-        setIsTyping(false);
-      }, 800);
-      return; // Stop here to avoid calling API without a name
+      setMessages(prev => [...prev, { id: Date.now()+1, text: `Piacere, ${userText}! Come posso aiutarti oggi?`, sender: 'bot' }]);
+      return;
     }
 
-    // PHASE 2: API Chat
     setIsTyping(true);
     try {
       const response = await fetch('http://127.0.0.1:8000/api/chat/', {
@@ -70,57 +53,54 @@ export default function ChatbotPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userText, user_name: userName }),
       });
-
       const data = await response.json();
-      
-      if (data.detected_language && ['en', 'es', 'it'].includes(data.detected_language)) {
-        setCurrentLang(data.detected_language as SupportedLang);
+
+      // IMPORTANT: Update UI language if backend detected a change
+      if (data.lang && ['en', 'es', 'it'].includes(data.lang)) {
+        setCurrentLang(data.lang as SupportedLang);
       }
       
-      setMessages(prev => [...prev, { id: Date.now() + 2, text: data.reply, sender: 'bot' }]);
+      setMessages(prev => [...prev, { id: Date.now()+2, text: data.reply, sender: 'bot' }]);
     } catch (error) {
-      setMessages(prev => [...prev, { id: Date.now() + 3, text: "Connection error.", sender: 'bot' }]);
+      setMessages(prev => [...prev, { id: Date.now()+3, text: "Connection error with Sherpa Brain.", sender: 'bot' }]);
     } finally {
       setIsTyping(false);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header lang={currentLang} />
-      <main className="flex-grow py-10">
+    <div className="flex flex-col min-h-screen">
+      <Header currentLang={currentLang} setLang={setCurrentLang} />
+      <main className="flex-grow py-8">
         <Container>
-          <div className="max-w-4xl mx-auto">
-            <div className="flex justify-between items-end mb-6">
-              <Heading title={chatLabels[currentLang].title} level={1} />
-              {userName && (
-                <button onClick={() => { localStorage.removeItem('chat_user_name'); window.location.reload(); }} 
-                        className="text-red-500 font-bold hover:underline">
-                  {chatLabels[currentLang].reset}
-                </button>
-              )}
+          <div className="max-w-4xl mx-auto bg-white/90 backdrop-blur-md rounded-3xl shadow-xl border border-indigo-100 overflow-hidden h-[650px] flex flex-col">
+            <div className="p-6 bg-gradient-to-r from-blue-50 to-emerald-50 border-b">
+              <h1 className="text-2xl font-bold text-gray-800">{chatLabels[currentLang].title}</h1>
+              <p className="text-sm text-gray-500">{chatLabels[currentLang].subtitle}</p>
             </div>
-            <div className="bg-white border-4 border-brand-secondary rounded-3xl shadow-xl flex flex-col h-[550px] overflow-hidden">
-              <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-gray-50">
-                {messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-4 rounded-2xl font-medium shadow-sm ${msg.sender === 'user' ? 'bg-brand-primary text-white rounded-tr-none' : 'bg-white border-2 border-brand-secondary rounded-tl-none'}`}>
-                      {msg.text}
-                    </div>
+
+            <div className="flex-grow overflow-y-auto p-6 space-y-4">
+              {messages.map(m => (
+                <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${m.sender === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border-2 border-emerald-100 rounded-tl-none'}`}>
+                    {m.text}
                   </div>
-                ))}
-                {isTyping && <div className="text-gray-400 italic animate-pulse">Sherpa is thinking...</div>}
-                <div ref={messagesEndRef} />
-              </div>
-              <form onSubmit={handleSendMessage} className="p-4 bg-white border-t flex gap-3">
-                <input 
-                  type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)}
-                  placeholder={chatLabels[currentLang].placeholder}
-                  className="flex-grow p-3 border-2 rounded-xl focus:border-brand-primary outline-none"
-                />
-                <button type="submit" className="bg-brand-primary text-white px-8 py-3 rounded-xl font-bold">SEND</button>
-              </form>
+                </div>
+              ))}
+              {isTyping && <div className="text-sm text-gray-400 italic animate-pulse">{chatLabels[currentLang].typing}</div>}
+              <div ref={messagesEndRef} />
             </div>
+
+            <form onSubmit={handleSendMessage} className="p-4 bg-gray-50 border-t flex gap-2">
+              <input 
+                type="text" value={inputValue} onChange={e => setInputValue(e.target.value)}
+                placeholder={chatLabels[currentLang].placeholder}
+                className="flex-grow p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-blue-500"
+              />
+              <button type="submit" className="bg-gradient-to-r from-blue-600 to-emerald-500 text-white px-8 py-4 rounded-xl font-bold">
+                {chatLabels[currentLang].send}
+              </button>
+            </form>
           </div>
         </Container>
       </main>

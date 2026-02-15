@@ -1,4 +1,5 @@
 import React from 'react';
+import { Container } from './Container';
 import { SupportedLang } from '../pages/chatbot';
 
 interface FooterProps {
@@ -6,34 +7,43 @@ interface FooterProps {
 }
 
 export const Footer = ({ lang }: FooterProps) => {
-  const footerLabels = {
-    it: { 
-      rights: "Tutti i diritti riservati", 
-      mission: "Rendiamo il supporto per l'Alzheimer accessibile a tutti." 
+  const labels = {
+    it: {
+      mission: "Supporto calmo e accessibile per l'Alzheimer.",
+      rights: "Tutti i diritti riservati.",
+      legal: "Informazioni Legali"
     },
-    en: { 
-      rights: "All rights reserved", 
-      mission: "Making Alzheimer's support accessible for everyone." 
+    en: {
+      mission: "Calm and accessible support for Alzheimer's.",
+      rights: "All rights reserved.",
+      legal: "Legal Info"
     },
-    es: { 
-      rights: "Todos los derechos reservados", 
-      mission: "Haciendo que el apoyo para el Alzheimer sea accesible para todos." 
+    es: {
+      mission: "Soporte tranquilo y accesible para el Alzheimer.",
+      rights: "Todos los derechos reservados.",
+      legal: "Información Legal"
     }
   };
 
-  // BULLETPROOF FALLBACK:
-  // If 'lang' is undefined or not in the object, it defaults to 'en'
-  const currentLabels = footerLabels[lang] || footerLabels['en'];
+  const t = labels[lang] || labels['en'];
 
   return (
-    <footer className="bg-brand-text text-white py-12 mt-10">
-      <div className="container mx-auto px-4 text-center">
-        <div className="text-xl font-bold mb-2">Sherpa Alzheimer Project</div>
-        <p className="text-gray-400 mb-6">{currentLabels.mission}</p>
-        <div className="text-sm text-gray-500 pt-6 border-t border-gray-800">
-          © 2026 {currentLabels.rights}
+    <footer className="bg-white border-t border-indigo-50 py-12 mt-auto">
+      <Container>
+        <div className="flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
+          <div className="max-w-xs">
+            <div className="text-2xl font-black text-gray-900 mb-2">Sherpa</div>
+            <p className="text-gray-500 text-sm leading-relaxed">
+              {t.mission}
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-center md:items-end gap-2 text-sm text-gray-400">
+            <p>© 2026 Sherpa Alzheimer. {t.rights}</p>
+            <p className="hover:text-blue-600 cursor-pointer transition">{t.legal}</p>
+          </div>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 };
