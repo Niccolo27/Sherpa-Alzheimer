@@ -1,19 +1,22 @@
 # Sherpa Alzheimer
-
 ---
-
 ## Technical Stack
 
 ### Frontend
 - Next.js 15+ (React, TypeScript)
-- Tailwind CSS
-- Lucide React
+- Tailwind CSS (Accessible design)
+- Lucide React (Iconography)
 
 ### Backend
 - Django 6.0 (Python 3.13)
 - Django REST Framework (API)
-- SQLite3 (Local Database)
-- Deep-Translator & LangDetect (AI Translation Engine)
+- SQLite3 (Database for conversation logging)
+- Gradio Client (AI Model Integration)
+- Deep-Translator & LangDetect (Multilingual Engine)
+
+### Integrations
+- Telegram Bot API (Mobile accessibility)
+- Amazon Alexa (Voice interface - via ngrok)
 
 ---
 
@@ -23,7 +26,7 @@
 Ensure you have the following installed:
 - Node.js (v18 or higher)
 - Python (v3.10 or higher)
-- Git
+- A Hugging Face Read Token (for Gradio access)
 
 ---
 
@@ -34,17 +37,16 @@ Open a terminal in the project root directory:
 # Enter the backend directory
 cd accessibot_backend
 
-# Create a virtual environment (optional but recommended)
+# Create and activate a virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Install Python dependencies
-pip install django djangorestframework django-cors-headers deep-translator langdetect python-telegram-bot
+# Install dependencies
+pip install django djangorestframework django-cors-headers deep-translator langdetect gradio_client python-telegram-bot
 
 # Database configuration
 python manage.py makemigrations
-python manage.py makemigrations chat_api
 python manage.py migrate
 
-# Create an administrator user for the dashboard
+# Create administrator
 python manage.py createsuperuser
