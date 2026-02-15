@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { Container } from '../components/Container';
-import { ServiceCard } from '../components/ServiceCard';
+import { FeatureCard } from '../components/FeatureCard'; // Updated component
 import { SupportedLang } from './chatbot';
 
 export default function Home() {
@@ -15,11 +15,11 @@ export default function Home() {
       heroTitle: "Il tuo compagno calmo per l'Alzheimer",
       heroDesc: "Sherpa è un assistente intelligente progettato per parlare con calma, ripetere quando serve e offrire supporto quotidiano.",
       cta: "Inizia a parlare",
-      ctaVoice: "Usa la voce 🎙️", // New label
-      servicesTitle: "I nostri servizi",
-      s1: { title: "Compagno AI", desc: "Un chatbot sempre disponibile per conversazioni semplici e rassicuranti." },
-      s2: { title: "Canali di Messaggistica", desc: "Parla con Sherpa su WhatsApp o Telegram, app che già conosci." },
-      s3: { title: "Accessibilità Reale", desc: "Interfaccia pulita, testi grandi e colori studiati per ridurre lo stress." },
+      ctaTelegram: "Usa Telegram ✈️",
+      servicesTitle: "I nostri canali di supporto",
+      s1: { title: "Sherpa Web AI", desc: "Parla direttamente con la nostra intelligenza artificiale avanzata con supporto vocale calmo." },
+      s2: { title: "Sherpa Telegram", desc: "Accedi all'assistente tramite Telegram per risposte rapide e promemoria mentre sei in giro." },
+      s3: { title: "Sherpa WhatsApp", desc: "Il modo più semplice per restare in contatto. Usa Sherpa direttamente su WhatsApp." },
       finalTitle: "Una conversazione serena, in ogni momento.",
       finalDesc: "Sherpa parla lentamente e mantiene le risposte brevi e chiare, proprio come farebbe un caregiver esperto.",
       imgAlt: "Persona anziana e caregiver interagiscono con serenità"
@@ -28,11 +28,11 @@ export default function Home() {
       heroTitle: "Your calm companion for Alzheimer's",
       heroDesc: "Sherpa is an intelligent assistant designed to speak calmly, repeat when needed, and offer daily support.",
       cta: "Start talking",
-      ctaVoice: "Use voice 🎙️", // New label
-      servicesTitle: "Our Services",
-      s1: { title: "AI Companion", desc: "An always-available chatbot for simple and reassuring conversations." },
-      s2: { title: "Messaging Channels", desc: "Talk to Sherpa on WhatsApp or Telegram, apps you already know." },
-      s3: { title: "Truly Accessible", desc: "Clean interface, large text, and colors designed to reduce stress." },
+      ctaTelegram: "Use Telegram ✈️",
+      servicesTitle: "Our Support Channels",
+      s1: { title: "Sherpa Web AI", desc: "Speak directly with our advanced AI featuring calm voice support." },
+      s2: { title: "Sherpa Telegram", desc: "Access the assistant via Telegram for quick answers and reminders on the go." },
+      s3: { title: "Sherpa WhatsApp", desc: "The easiest way to stay in touch. Use Sherpa directly on WhatsApp." },
       finalTitle: "A serene conversation, at any time.",
       finalDesc: "Sherpa speaks slowly and keeps answers short and clear, just like an expert caregiver would.",
       imgAlt: "Elderly person and caregiver interacting calmly"
@@ -41,11 +41,11 @@ export default function Home() {
       heroTitle: "Tu compañero tranquilo para el Alzheimer",
       heroDesc: "Sherpa es un asistente inteligente diseñado para hablar con calma, repetir cuando sea necesario y ofrecer apoyo diario.",
       cta: "Empezar a hablar",
-      ctaVoice: "Usar voz 🎙️", // New label
-      servicesTitle: "Nuestros Servicios",
-      s1: { title: "Compañero AI", desc: "Un chatbot siempre disponible para conversaciones sencillas y tranquilizadoras." },
-      s2: { title: "Canales de Mensajería", desc: "Habla con Sherpa en WhatsApp o Telegram, aplicaciones que ya conoces." },
-      s3: { title: "Realmente Accesible", desc: "Interfaz limpia, textos grandes y colores diseñados para reducir el estrés." },
+      ctaTelegram: "Usar Telegram ✈️",
+      servicesTitle: "Nuestros canales de soporte",
+      s1: { title: "Sherpa Web AI", desc: "Habla directamente con nuestra IA avanzada con soporte de voz calmado." },
+      s2: { title: "Sherpa Telegram", desc: "Accede al asistente vía Telegram para respuestas rápidas y recordatorios." },
+      s3: { title: "Sherpa WhatsApp", desc: "La forma más fácil de estar en contacto. Usa Sherpa directamente en WhatsApp." },
       finalTitle: "Una convesación serena, en cualquier momento.",
       finalDesc: "Sherpa habla despacio y mantiene las respuestas cortas y claras, tal como lo haría un cuidador experto.",
       imgAlt: "Persona mayor y cuidador interactuando con calma"
@@ -54,10 +54,11 @@ export default function Home() {
 
   const t = content[lang] || content['en'];
 
-  const services = [
-    { title: t.s1.title, desc: t.s1.desc, icon: '🧠' },
-    { title: t.s2.title, desc: t.s2.desc, icon: '💬' },
-    { title: t.s3.title, desc: t.s3.desc, icon: '♿' },
+  // Data for the three main cards
+  const platforms = [
+    { title: t.s1.title, desc: t.s1.desc, icon: '🤖', href: '/chatbot', color: 'bg-blue-50 text-blue-600' },
+    { title: t.s2.title, desc: t.s2.desc, icon: '✈️', href: '/telegram', color: 'bg-sky-50 text-sky-500' },
+    { title: t.s3.title, desc: t.s3.desc, icon: '💬', href: '/whatsapp', color: 'bg-emerald-50 text-emerald-600' },
   ];
 
   return (
@@ -69,33 +70,29 @@ export default function Home() {
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             
-            {/* Text Side */}
             <div className="space-y-8 relative z-10 animate-fade-in-slow">
-              <h1 className="text-5xl md:text-7xl font-black text-gray-900 leading-tight">
+              <h1 className="text-5xl md:text-7xl font-black text-gray-900 leading-tight tracking-tighter">
                 {t.heroTitle}
               </h1>
-              <p className="text-xl md:text-2xl text-gray-600 max-w-2xl leading-relaxed">
+              <p className="text-xl md:text-2xl text-gray-600 max-w-2xl leading-relaxed font-medium">
                 {t.heroDesc}
               </p>
               
-              {/* BUTTON GROUP */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/chatbot">
-                  <button className="w-full sm:w-auto px-10 py-5 text-xl font-bold rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-500 text-white shadow-xl hover:shadow-2xl hover:-translate-y-1 transition transform duration-300">
+                  <button className="w-full sm:w-auto px-10 py-5 text-xl font-bold rounded-2xl bg-blue-600 text-white shadow-xl hover:shadow-2xl hover:-translate-y-1 transition transform duration-300">
                     {t.cta}
                   </button>
                 </Link>
                 
-                {/* NEW VOICE BUTTON */}
-                <Link href="/voice">
-                  <button className="w-full sm:w-auto px-10 py-5 text-xl font-bold rounded-2xl bg-white text-blue-600 border-2 border-blue-600 shadow-md hover:bg-blue-50 hover:-translate-y-1 transition transform duration-300">
-                    {t.ctaVoice}
+                <Link href="/telegram">
+                  <button className="w-full sm:w-auto px-10 py-5 text-xl font-bold rounded-2xl bg-white text-sky-600 border-2 border-sky-100 shadow-sm hover:bg-sky-50 hover:-translate-y-1 transition transform duration-300">
+                    {t.ctaTelegram}
                   </button>
                 </Link>
               </div>
             </div>
 
-            {/* Image Side */}
             <div className="relative">
               <div className="relative z-10 w-full aspect-square rounded-[40px] overflow-hidden shadow-2xl border-8 border-white">
                 <Image 
@@ -114,17 +111,23 @@ export default function Home() {
         </Container>
       </section>
 
-      {/* SERVICES SECTION */}
-      <section className="py-24 bg-gradient-to-b from-transparent to-slate-50">
+      {/* SERVICES GRID SECTION */}
+      <section className="py-24 bg-slate-50/50">
         <Container>
-          <h2 className="text-4xl font-black mb-16 text-center text-gray-900">{t.servicesTitle}</h2>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-black text-gray-900 mb-4">{t.servicesTitle}</h2>
+            <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {services.map((service, index) => (
-              <ServiceCard 
-                key={index} 
-                title={service.title} 
-                description={service.desc} 
-                icon={service.icon} 
+            {platforms.map((p, index) => (
+              <FeatureCard 
+                key={index}
+                title={p.title}
+                description={p.desc}
+                icon={p.icon}
+                href={p.href}
+                color={p.color}
               />
             ))}
           </div>
@@ -135,22 +138,17 @@ export default function Home() {
       <section className="py-20 bg-gradient-to-r from-emerald-50 via-sky-50 to-blue-50">
         <Container>
           <div className="max-w-3xl mx-auto text-center space-y-8">
-            <h3 className="text-3xl md:text-5xl font-extrabold text-emerald-900">
+            <h3 className="text-3xl md:text-5xl font-black text-slate-800">
               {t.finalTitle}
             </h3>
-            <p className="text-xl text-gray-700 leading-relaxed">
+            <p className="text-xl text-slate-600 leading-relaxed font-medium">
               {t.finalDesc}
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Link href="/chatbot">
-                <button className="px-12 py-5 text-xl font-bold rounded-2xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition">
-                    {t.cta}
-                </button>
-                </Link>
-                <Link href="/voice">
-                <button className="px-12 py-5 text-xl font-bold rounded-2xl bg-white text-emerald-600 border-2 border-emerald-600 shadow-lg hover:bg-emerald-50 transition">
-                    {t.ctaVoice}
-                </button>
+                  <button className="px-12 py-5 text-xl font-bold rounded-2xl bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition">
+                      {t.cta}
+                  </button>
                 </Link>
             </div>
           </div>

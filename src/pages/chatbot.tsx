@@ -54,7 +54,7 @@ function parseSherpaReply(reply: string): ReplyBlock[] {
 
 export default function ChatbotPage() {
   const [currentLang, setCurrentLang] = useState<SupportedLang>('it');
-  const [userName, setUserName] = useState<string>('');
+  const [user, setUser] = useState<{name: string} | null>({ name: "User" }); 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -297,6 +297,10 @@ export default function ChatbotPage() {
     await sendMessageToBackend(textToSend);
   };
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Header currentLang={currentLang} setLang={setCurrentLang} />
@@ -433,6 +437,7 @@ export default function ChatbotPage() {
 
                 <div ref={messagesEndRef} />
               </div>
+            </div>
 
               {/* Controls */}
               <form onSubmit={e => handleSendMessage(e)} className="p-6 bg-white border-t border-indigo-50">
@@ -466,8 +471,45 @@ export default function ChatbotPage() {
                     {chatLabels[currentLang].send.toUpperCase()}
                   </button>
                 </div>
-              </form>
+              ))}
+              {isTyping && (
+                <div className="flex items-center gap-2 text-blue-500 font-bold animate-pulse">
+                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                   {t.typing}
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
+
+            {/* Input Form */}
+            <form onSubmit={handleSendMessage} className="p-6 bg-white border-t border-slate-100 flex gap-4 items-center">
+              <input 
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder={t.placeholder}
+                className="flex-1 bg-slate-100 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-blue-400 text-slate-700"
+              />
+              
+              <button 
+                type="button"
+                onClick={toggleVoiceInput}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 ${
+                  isListening 
+                  ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-200' 
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {isListening ? '🛑' : '🎙️'}
+              </button>
+
+              <button 
+                type="submit"
+                disabled={!inputValue.trim()}
+                className="bg-blue-600 text-white h-14 px-8 rounded-2xl font-black hover:bg-blue-700 transition shadow-lg shadow-blue-100 disabled:opacity-50"
+              >
+                {currentLang === 'it' ? 'INVIA' : 'SEND'}
+              </button>
+            </form>
           </div>
         </Container>
       </main>
