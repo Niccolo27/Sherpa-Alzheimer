@@ -1,60 +1,50 @@
-from gradio_client import Client
-from deep_translator import GoogleTranslator
-from langdetect import detect, DetectorFactory
+from gradio_client import Client, handle_file
 from .models import Message
-
-DetectorFactory.seed = 0
+import os
 
 def process_sherpa_logic(user_text, user_name="User"):
     """
-    Central logic: Detects language, pivots to English, 
-    calls GRADIO, and translates back.
+    Handles text chat logic. Calls Gradio and logs to the database.
     """
-    # 1. Detect Language
     try:
-        user_lang = detect(user_text)
-    except:
-        user_lang = 'en'
-
-    # 2. English-Pivot
-    if user_lang != 'en':
-        english_input = GoogleTranslator(source='auto', target='en').translate(user_text)
-    else:
-        english_input = user_text
-
-    # 3. CALL GRADIO CLIENT (The actual fix)
-    try:
-        # We initialize the client inside the function or globally
-        client = Client("Etah-94/digital-sherpa")
-        
-        # NOTE: Check your Gradio "Use via API" tab to see if the 
-        # input is 'message', 'text', or just a positional argument.
+        client = Client("Etah-94/digitalsharps")
         result = client.predict(
-            message=english_input, 
+            message=user_text, 
             api_name="/chat" 
         )
-        
-        # Gradio often returns a list or a dictionary depending on the model
-        if isinstance(result, (list, tuple)):
-            english_response = result[0]
-        else:
-            english_response = str(result)
-
+        final_response = result
     except Exception as e:
-        print(f"Gradio Error: {e}")
-        english_response = "I am currently re-calibrating my connection to the Gradio Space. Please try again."
+        print(f"Gradio Chat Error: {e}")
+        final_response = "I'm having trouble connecting to my brain. Please try again soon."
 
-    # 4. Output Translation
-    if user_lang != 'en':
-        final_response = GoogleTranslator(source='en', target=user_lang).translate(english_response)
-    else:
-        final_response = english_response
-
-    # 5. Database Logging
+    # Save to database
     Message.objects.create(user_name=user_name, text=user_text, sender='user')
     Message.objects.create(user_name=user_name, text=final_response, sender='bot')
 
     return {
         "reply": final_response,
-        "lang": user_lang
+        "detected_language": None 
     }
+
+def process_voice_logic(audio_path, user_name="User"):
+    """
+    Handles voice-to-voice logic.
+    """
+    try:
+        client = Client()
+        
+        # Ensure the api_name matches your Gradio Voice settings
+        result = client.predict(
+            audio=handle_file(audio_path),
+            api_name="/voice_chat" 
+        )
+        
+        # Assuming Gradio returns: [Transcript, Bot_Response_Text, Audio_URL]
+        return {
+            "user_text": result[0],
+            "reply": result[1],
+            "audio_url": result[2] 
+        }
+    except Exception as e:
+        print(f"Gradio Voice Error: {e}")
+        raise e
