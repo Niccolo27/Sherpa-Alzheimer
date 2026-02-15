@@ -7,7 +7,7 @@ def process_sherpa_logic(user_text, user_name="User"):
     Handles text chat logic. Calls Gradio and logs to the database.
     """
     try:
-        client = Client("Etah-94/digitalsharps")
+        client = Client("Etah-94/digital-sherpa")
         result = client.predict(
             message=user_text, 
             api_name="/chat" 
@@ -33,7 +33,7 @@ def process_voice_logic(audio_path, user_name="User"):
     try:
         client = Client()
         
-        # Ensure the api_name matches your Gradio Voice settings
+     
         result = client.predict(
             audio=handle_file(audio_path),
             api_name="/voice_chat" 

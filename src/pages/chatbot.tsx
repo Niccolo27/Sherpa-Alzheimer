@@ -58,7 +58,10 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const chatLabels = {
     it: {
@@ -71,6 +74,10 @@ export default function ChatbotPage() {
       send: 'Invia',
       quickTitle: 'Hai bisogno di aiuto su qualcosa di specifico?',
       quickNameFirst: 'Prima dimmi come ti chiami 🙂',
+      repeat: 'Ripeti',
+      connectionError: 'Errore di connessione.',
+      niceToMeetYou: (name: string) => `Piacere di conoscerti, ${name}!`,
+      welcomeBack: (name: string) => `Bentornato, ${name}!`,
     },
     en: {
       title: 'Sherpa Alzheimer',
@@ -82,6 +89,10 @@ export default function ChatbotPage() {
       send: 'Send',
       quickTitle: 'Need help with something specific?',
       quickNameFirst: 'Tell me your name first 🙂',
+      repeat: 'Repeat',
+      connectionError: 'Connection error.',
+      niceToMeetYou: (name: string) => `Nice to meet you, ${name}!`,
+      welcomeBack: (name: string) => `Welcome back, ${name}!`,
     },
     es: {
       title: 'Sherpa Alzheimer',
@@ -93,8 +104,12 @@ export default function ChatbotPage() {
       send: 'Enviar',
       quickTitle: '¿Necesitas ayuda con algo específico?',
       quickNameFirst: 'Dime tu nombre primero 🙂',
+      repeat: 'Repetir',
+      connectionError: 'Error de conexión.',
+      niceToMeetYou: (name: string) => `Encantado/a, ${name}!`,
+      welcomeBack: (name: string) => `¡Bienvenido/a de nuevo, ${name}!`,
     },
-  };
+  } as const;
 
   // Quick prompts (buttons)
   const quickPrompts: Array<{ label: string; message: string }> = [
@@ -120,12 +135,98 @@ export default function ChatbotPage() {
     },
   ];
 
+  // --- VOICE LOGIC: CALM TEXT TO SPEECH ---
+  const speak = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    utterance.lang = currentLang === 'it' ? 'it-IT' : currentLang === 'es' ? 'es-ES' : 'en-US';
+
+    // Calmness Settings
+    utterance.rate = 0.85;
+    utterance.pitch = 0.95;
+    utterance.volume = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(
+      v => (v.name.includes('Google') || v.name.includes('Natural')) && v.lang.startsWith(utterance.lang.split('-')[0])
+    );
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // --- VOICE LOGIC: SPEECH TO TEXT ---
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) return;
+
+    const rec = new SpeechRecognition();
+    rec.continuous = false;
+    rec.interimResults = false;
+
+    rec.onresult = (event: any) => {
+      const text = event.results?.[0]?.[0]?.transcript || '';
+      if (text) handleSendMessage(null, text);
+    };
+
+    rec.onend = () => setIsListening(false);
+
+    recognitionRef.current = rec;
+    // load voices once
+    window.speechSynthesis.getVoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleVoice = () => {
+    if (!recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      if (typeof window !== 'undefined') window.speechSynthesis.cancel();
+
+      recognitionRef.current.lang =
+        currentLang === 'it' ? 'it-IT' : currentLang === 'es' ? 'es-ES' : 'en-US';
+
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  // --- INITIALIZATION (welcome + saved name) ---
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const savedName = localStorage.getItem('chat_user_name');
+    if (savedName) {
+      setUserName(savedName);
+      setMessages([{ id: 1, text: chatLabels[currentLang].welcomeBack(savedName), sender: 'bot' }]);
+    } else {
+      setMessages([{ id: 1, text: chatLabels[currentLang].welcome, sender: 'bot' }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // Reusable backend call
+  const handleReset = () => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('chat_user_name');
+    window.location.reload();
+  };
+
+  // Reusable backend call (keep 8001)
   const sendMessageToBackend = async (userText: string) => {
     setIsTyping(true);
 
@@ -137,7 +238,6 @@ export default function ChatbotPage() {
       });
 
       const data = await response.json();
-      console.log('Data >>', data);
 
       // Update UI language if backend detected a change
       if (data.lang && ['en', 'es', 'it'].includes(data.lang)) {
@@ -145,18 +245,17 @@ export default function ChatbotPage() {
       }
 
       setMessages(prev => [...prev, { id: Date.now() + 2, text: data.reply, sender: 'bot' }]);
-    } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        { id: Date.now() + 3, text: 'Connection error with Sherpa Brain.', sender: 'bot' },
-      ]);
+      speak(data.reply);
+    } catch {
+      const errText = chatLabels[currentLang].connectionError;
+      setMessages(prev => [...prev, { id: Date.now() + 3, text: errText, sender: 'bot' }]);
+      speak(errText);
     } finally {
       setIsTyping(false);
     }
   };
 
   const handleQuickPrompt = async (promptMessage: string) => {
-    // Require name first (same flow as typing)
     if (!userName) {
       setMessages(prev => [
         ...prev,
@@ -165,146 +264,214 @@ export default function ChatbotPage() {
       return;
     }
 
-    // Add the "user" message in the chat
     setMessages(prev => [...prev, { id: Date.now(), text: promptMessage, sender: 'user' }]);
-
-    // Call backend and display bot reply
     await sendMessageToBackend(promptMessage);
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
+  // --- MESSAGE HANDLING (supports typed + voice) ---
+  const handleSendMessage = async (e: React.FormEvent | null, voiceText?: string) => {
+    if (e) e.preventDefault();
 
-    const userText = inputValue.trim();
-    setMessages(prev => [...prev, { id: Date.now(), text: userText, sender: 'user' }]);
+    const textToSend = (voiceText ?? inputValue).trim();
+    if (!textToSend) return;
+
+    setMessages(prev => [...prev, { id: Date.now(), text: textToSend, sender: 'user' }]);
     setInputValue('');
 
     // First message = user's name
     if (!userName) {
-      setUserName(userText);
-      localStorage.setItem('chat_user_name', userText);
-      setMessages(prev => [
-        ...prev,
-        { id: Date.now() + 1, text: `Piacere, ${userText}! Come posso aiutarti oggi?`, sender: 'bot' },
-      ]);
+      setUserName(textToSend);
+      if (typeof window !== 'undefined') localStorage.setItem('chat_user_name', textToSend);
+
+      setIsTyping(true);
+      setTimeout(() => {
+        const reply = chatLabels[currentLang].niceToMeetYou(textToSend);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: reply, sender: 'bot' }]);
+        setIsTyping(false);
+        speak(reply);
+      }, 700);
+
       return;
     }
 
-    await sendMessageToBackend(userText);
+    await sendMessageToBackend(textToSend);
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <Header currentLang={currentLang} setLang={setCurrentLang} />
-      <main className="flex-grow py-8">
+
+      <main className="flex-1 px-4 py-6">
         <Container>
-          <div className="max-w-4xl mx-auto bg-white/90 backdrop-blur-md rounded-3xl shadow-xl border border-indigo-100 overflow-hidden h-[850px] flex flex-col">
-            <div className="p-6 bg-gradient-to-r from-blue-50 to-emerald-50 border-b">
-              <h1 className="text-2xl font-bold text-gray-800">{chatLabels[currentLang].title}</h1>
-              <p className="text-sm text-gray-500">{chatLabels[currentLang].subtitle}</p>
-            </div>
-
-            {/* Quick Support Buttons */}
-            <div className="px-6 py-4 border-b bg-white">
-              <p className="text-sm font-medium text-gray-600 mb-3">{chatLabels[currentLang].quickTitle}</p>
-
-              <div className="flex flex-wrap gap-2">
-                {quickPrompts.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleQuickPrompt(prompt.message)}
-                    className="text-sm px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
-                  >
-                    {prompt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex-grow overflow-y-auto p-6 space-y-4">
-              {messages.map(m => (
-                <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
-                      m.sender === 'user'
-                        ? 'bg-blue-600 text-white rounded-tr-none'
-                        : 'bg-white border-2 border-emerald-100 rounded-tl-none'
-                    }`}
-                  >
-                    {m.sender === 'bot' ? (
-                      <div className="space-y-2">
-                        {parseSherpaReply(m.text).map((b, idx) => {
-                          if (b.type === 'heading') {
-                            return (
-                              <div key={idx} className="font-semibold text-gray-800 pt-2">
-                                {b.text}
-                              </div>
-                            );
-                          }
-
-                          if (b.type === 'bullet') {
-                            return (
-                              <div key={idx} className="flex gap-2 text-gray-700">
-                                <span className="mt-[2px]">•</span>
-                                <span>{b.text}</span>
-                              </div>
-                            );
-                          }
-
-                          if (b.type === 'link') {
-                            return (
-                              <a
-                                key={idx}
-                                href={b.href}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 underline break-all"
-                              >
-                                {b.href}
-                              </a>
-                            );
-                          }
-
-                          return (
-                            <div key={idx} className="text-gray-700">
-                              {b.text}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      m.text
-                    )}
+          <div className="mx-auto w-full max-w-4xl">
+            <div className="rounded-[40px] border border-indigo-100 bg-white shadow-2xl overflow-hidden">
+              {/* Header Info */}
+              <div className="px-6 py-5 border-b border-indigo-50 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl shadow-inner">
+                    🤖
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-gray-900 leading-none">
+                      {chatLabels[currentLang].title}
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">{chatLabels[currentLang].subtitle}</p>
                   </div>
                 </div>
-              ))}
 
-              {isTyping && (
-                <div className="text-sm text-gray-400 italic animate-pulse">{chatLabels[currentLang].typing}</div>
-              )}
-              <div ref={messagesEndRef} />
+                {userName && (
+                  <button
+                    onClick={handleReset}
+                    className="text-xs font-bold uppercase tracking-wider text-red-500 hover:text-red-700 transition"
+                  >
+                    {chatLabels[currentLang].reset}
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Support Buttons */}
+              <div className="px-6 py-4 border-b bg-white">
+                <p className="text-sm font-medium text-gray-600 mb-3">
+                  {chatLabels[currentLang].quickTitle}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {quickPrompts.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleQuickPrompt(prompt.message)}
+                      className="text-sm px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                    >
+                      {prompt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chat View */}
+              <div className="h-[60vh] overflow-y-auto px-6 py-8 space-y-6 bg-slate-50/50">
+                {messages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className={`flex items-start gap-3 ${
+                      msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
+                    }`}
+                  >
+                    <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                      <div
+                        className={`max-w-[85%] px-6 py-4 rounded-[30px] shadow-sm text-lg leading-relaxed ${
+                          msg.sender === 'user'
+                            ? 'bg-blue-600 text-white rounded-tr-none'
+                            : 'bg-white border border-indigo-50 text-gray-800 rounded-tl-none'
+                        }`}
+                      >
+                        {msg.sender === 'bot' ? (
+                          <div className="space-y-2">
+                            {parseSherpaReply(msg.text).map((b, idx2) => {
+                              if (b.type === 'heading') {
+                                return (
+                                  <div key={idx2} className="font-semibold text-gray-900 pt-2">
+                                    {b.text}
+                                  </div>
+                                );
+                              }
+
+                              if (b.type === 'bullet') {
+                                return (
+                                  <div key={idx2} className="flex gap-2 text-gray-800">
+                                    <span className="mt-[2px]">•</span>
+                                    <span>{b.text}</span>
+                                  </div>
+                                );
+                              }
+
+                              if (b.type === 'link') {
+                                return (
+                                  <a
+                                    key={idx2}
+                                    href={b.href}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-600 underline break-all"
+                                  >
+                                    {b.href}
+                                  </a>
+                                );
+                              }
+
+                              return (
+                                <div key={idx2} className="text-gray-800">
+                                  {b.text}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          msg.text
+                        )}
+                      </div>
+
+                      {msg.sender === 'bot' && (
+                        <button
+                          onClick={() => speak(msg.text)}
+                          className="mt-2 text-blue-400 hover:text-blue-600 flex items-center gap-1 text-sm font-bold"
+                          type="button"
+                        >
+                          🔊 {chatLabels[currentLang].repeat}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {isTyping && (
+                  <div className="flex items-center gap-2 text-blue-400 font-bold animate-pulse">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full" />
+                    {chatLabels[currentLang].typing}
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Controls */}
+              <form onSubmit={e => handleSendMessage(e)} className="p-6 bg-white border-t border-indigo-50">
+                <div className="flex gap-4 items-center">
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={e => setInputValue(e.target.value)}
+                    placeholder={chatLabels[currentLang].placeholder}
+                    className="flex-1 rounded-2xl border-2 border-slate-100 bg-slate-50 px-6 py-4 text-lg outline-none focus:border-blue-400 transition-all"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all shadow-lg ${
+                      isListening
+                        ? 'bg-red-500 text-white animate-pulse shadow-red-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                    aria-label="Voice input"
+                  >
+                    <span className="text-3xl">{isListening ? '🛑' : '🎙️'}</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={!inputValue.trim()}
+                    className="h-16 px-8 rounded-2xl font-black text-white bg-blue-600 shadow-blue-200 shadow-lg hover:bg-blue-700 disabled:opacity-30 transition-all active:scale-95"
+                  >
+                    {chatLabels[currentLang].send.toUpperCase()}
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleSendMessage} className="p-4 bg-gray-50 border-t flex gap-2">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                placeholder={chatLabels[currentLang].placeholder}
-                className="flex-grow p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-blue-500"
-              />
-              <button
-                type="submit"
-                className="bg-gradient-to-r from-blue-600 to-emerald-500 text-white px-8 py-4 rounded-xl font-bold"
-              >
-                {chatLabels[currentLang].send}
-              </button>
-            </form>
           </div>
         </Container>
       </main>
+
       <Footer lang={currentLang} />
     </div>
   );
