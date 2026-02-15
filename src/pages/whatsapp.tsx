@@ -30,7 +30,7 @@ export default function WhatsappPage() {
           </div>
         </Container>
       </main>
-      <Footer />
+      <Footer lang={lang}/>
     </div>
   );
 }
