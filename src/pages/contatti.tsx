@@ -120,7 +120,6 @@ export default function Contatti() {
 
                 <AccessibleButton 
                   text={status === 'loading' ? '...' : content.send} 
-                  type="submit" 
                 />
                 
                 {status === 'error' && (
